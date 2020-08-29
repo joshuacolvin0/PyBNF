@@ -3,7 +3,7 @@
 
 from .data import Data, DuplicateColumnError
 from .objective import ChiSquareObjective, SumOfSquaresObjective, NormSumOfSquaresObjective, \
-    AveNormSumOfSquaresObjective, SumOfDiffsObjective
+    AveNormSumOfSquaresObjective, SumOfDiffsObjective, NegBinLikelihood, KLLikelihood
 
 from .pset import BNGLModel, ModelError, SbmlModel, SbmlModelNoTimeout, FreeParameter, TimeCourse, ParamScan, \
     Mutation, MutationSet
@@ -92,7 +92,7 @@ def reinit_logging(file_prefix, debug=False, log_level_name='info'):
     init_logging(file_prefix, debug, log_level_name)
 
 class Configuration(object):
-    def __init__(self, d=dict()):
+    def __init__(self, d=None):
         """
         Instantiates a Configuration object using a dictionary generated
         by the configuration file parser.  Default key, value pairs are used
@@ -101,6 +101,8 @@ class Configuration(object):
         :param d: The result from parsing a configuration file
         :type d: dict
         """
+        if d is None:
+            d = dict()
         if 'models' not in d or len(d['models']) == 0:
             raise UnspecifiedConfigurationKeyError("'model' must be specified in the configuration file.")
         if 'fit_type' not in d:
@@ -575,9 +577,17 @@ class Configuration(object):
             return AveNormSumOfSquaresObjective(self.config['ind_var_rounding'])
         elif self.config['objfunc'] == 'sod':
             return SumOfDiffsObjective(self.config['ind_var_rounding'])
+        elif self.config['objfunc'] == 'neg_bin':
+            if 'neg_bin_r' in self.config:
+                return NegBinLikelihood(self.config['neg_bin_r'], self.config['ind_var_rounding'])
+            else:
+                raise UnknownObjectiveFunctionError("Objective function neg_bin cannot be defined without "
+                                                    "configuration neg_bin_r defined")
+        elif self.config['objfunc'] == 'kl':
+            return KLLikelihood(self.config['ind_var_rounding'])
         raise UnknownObjectiveFunctionError("Objective function %s not defined" % self.config['objfunc'],
               "Objective function %s is not defined. Valid objective function choices are: "
-              "chi_sq, sos, sod, norm_sos, ave_norm_sos" % self.config['objfunc'])
+              "chi_sq, sos, sod, norm_sos, ave_norm_sos, neg_bin, kl" % self.config['objfunc'])
 
     def _load_variables(self):
         """

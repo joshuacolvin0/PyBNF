@@ -22,7 +22,7 @@ setup(name='pybnf',
       description='An application for parallel fitting of BioNetGen and SBML models using metaheuristics',
       long_description=long_desc,
       author='Eshan Mitra, Ryan Suderman, Alex Ionkov',
-      package=['pybnf'],
-      install_requires=['distributed==1.24.0', 'paramiko', 'numpy', 'nose', 'pyparsing', 'libroadrunner>=1.5.2',
-                        'dask==0.20.0', 'tornado >= 4.5.1, < 5.0.0'],
-      python_requires=">=3.5")
+      install_requires=['distributed>=2.22.0', 'paramiko', 'numpy', 'scipy',
+                        'nose', 'pyparsing', 'libroadrunner>=1.5.2',
+                        'dask>=2.22.0', 'tornado>5.0.0'],
+      python_requires=">=3.5,<3.8")

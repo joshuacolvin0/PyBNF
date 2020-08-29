@@ -1,6 +1,5 @@
 """Contains the Algorithm class and subclasses as well as support classes and functions for running simulations"""
 
-
 from distributed import as_completed
 from subprocess import run
 from subprocess import CalledProcessError, TimeoutExpired
@@ -30,7 +29,6 @@ from tornado import gen
 from distributed.client import _wait
 from concurrent.futures._base import CancelledError
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -49,8 +47,8 @@ class Result(object):
         Top-level keys are model names and values are dictionaries whose keys are action suffixes and values are
         Data instances
         :type simdata: dict Returns a
-        :param log: The stdout + stderr of the simulations
-        :type log: list of str
+        :param name: The job id
+        :type name: string
         """
         self.pset = paramset
         self.simdata = simdata
@@ -118,7 +116,6 @@ class FailedSimulation(Result):
         Instantiates a FailedSimulation
 
         :param paramset:
-        :param log:
         :param name:
         :param fail_type: 0 - Exceeded walltime, 1 - Other crash
         :type fail_type: int
@@ -286,7 +283,8 @@ class Job:
                     print0('User-defined post-processing script failed')
                     res.score = np.inf
                 else:
-                    res.score = self.calc_future.result().evaluate_objective(res.simdata, show_warnings=self.show_warnings)
+                    res.score = self.calc_future.result().evaluate_objective(res.simdata,
+                                                                             show_warnings=self.show_warnings)
                     if res.score is None:
                         res.score = np.inf
                         logger.warning('Simulation corresponding to Result %s contained NaNs or Infs' % res.name)
@@ -313,6 +311,7 @@ class JobGroup:
     """
     Represents a group of jobs that are identical replicates to be averaged together for smoothing
     """
+
     def __init__(self, job_id, subjob_ids):
         """
         :param job_id: The name of the Job this group is representing
@@ -392,6 +391,7 @@ class custom_as_completed(as_completed):
     By using this subclass instead of as_completed, if you get an exception in a job,
     that exception is returned as the result, instead of the job disappearing.
     """
+
     @gen.coroutine
     def track_future(self, future):
         try:
@@ -418,6 +418,7 @@ class DaskError:
     """
     Class representing the result of a job that failed due to a raised exception
     """
+
     def __init__(self, error, tb):
         self.error = error
         self.traceback = tb
@@ -500,7 +501,7 @@ class Algorithm(object):
                     try:
                         shutil.rmtree(boot_dir)
                     except OSError:
-                        logger.error('Failed to remove bootstrap directory '+boot_dir)
+                        logger.error('Failed to remove bootstrap directory ' + boot_dir)
                 os.mkdir(boot_dir)
 
         self.best_fit_obj = None
@@ -514,7 +515,7 @@ class Algorithm(object):
         :param k:
         :return:
         """
-        return k not in set(['trajectory', 'calc_future'])
+        return k not in {'trajectory', 'calc_future'}
 
     def __getstate__(self):
         return {k: v for k, v in self.__dict__.items() if self.should_pickle(k)}
@@ -574,7 +575,7 @@ class Algorithm(object):
                     exit(1)
                 except TimeoutExpired:
                     logger.debug("Network generation exceeded %d seconds... exiting" %
-                                  self.config.config['wall_time_gen'])
+                                 self.config.config['wall_time_gen'])
                     print0("Network generation took too long.  Increase 'wall_time_gen' configuration parameter")
                     exit(1)
                 except:
@@ -586,8 +587,9 @@ class Algorithm(object):
                     os.chdir(home_dir)
 
                 logger.info('Output for network generation of model %s logged in %s/%s.log' %
-                             (m.name, init_dir, gnm_name))
-                final_model_list.append(NetModel(m.name, m.actions, m.suffixes, m.mutants, nf=init_dir + '/' + gnm_name + '.net'))
+                            (m.name, init_dir, gnm_name))
+                final_model_list.append(
+                    NetModel(m.name, m.actions, m.suffixes, m.mutants, nf=init_dir + '/' + gnm_name + '.net'))
                 final_model_list[-1].bng_command = m.bng_command
             else:
                 logger.info('Model %s does not require network generation' % m.name)
@@ -682,11 +684,11 @@ class Algorithm(object):
             rowindex = 0
             for var in self.variables:
                 if var.type == 'uniform_var':
-                    rescaled_val = var.p1 + row[rowindex]*(var.p2-var.p1)
+                    rescaled_val = var.p1 + row[rowindex] * (var.p2 - var.p1)
                     pset_vars.append(var.set_value(rescaled_val))
                     rowindex += 1
                 elif var.type == 'loguniform_var':
-                    rescaled_val = exp10(np.log10(var.p1) + row[rowindex]*(np.log10(var.p2)-np.log10(var.p1)))
+                    rescaled_val = exp10(np.log10(var.p1) + row[rowindex] * (np.log10(var.p2) - np.log10(var.p1)))
                     pset_vars.append(var.set_value(rescaled_val))
                     rowindex += 1
                 else:
@@ -738,7 +740,7 @@ class Algorithm(object):
                 newnames.append(thisname)
                 # calc_future is supposed to be None here - the workers don't have enough info to calculate the
                 # objective on their own
-                newjobs.append(Job(self.model_list[model_count*i//rep_count:model_count*(i+1)//rep_count],
+                newjobs.append(Job(self.model_list[model_count * i // rep_count:model_count * (i + 1) // rep_count],
                                    params, thisname, self.sim_dir, self.config.config['wall_time_sim'],
                                    self.calc_future, self.config.config['normalization'], dict(),
                                    bool(self.config.config['delete_old_files'])))
@@ -749,10 +751,9 @@ class Algorithm(object):
         else:
             # Create a single job
             return [Job(self.model_list, params, job_id,
-                    self.sim_dir, self.config.config['wall_time_sim'], self.calc_future,
-                    self.config.config['normalization'], self.config.postprocessing,
-                    bool(self.config.config['delete_old_files']))]
-
+                        self.sim_dir, self.config.config['wall_time_sim'], self.calc_future,
+                        self.config.config['normalization'], self.config.postprocessing,
+                        bool(self.config.config['delete_old_files']))]
 
     def output_results(self, name='', no_move=False):
         """
@@ -892,7 +893,7 @@ class Algorithm(object):
             if isinstance(res, FailedSimulation):
                 if res.fail_type >= 1:
                     self.fail_count += 1
-                tb = '\n'+res.traceback if res.fail_type == 1 else ''
+                tb = '\n' + res.traceback if res.fail_type == 1 else ''
 
                 logger.debug('Job %s failed with code %d%s' % (res.name, res.fail_type, tb))
                 if res.fail_type >= 1:
@@ -975,7 +976,7 @@ class Algorithm(object):
                 print1('Failed to rerun best fit parameter set. See log for details')
             else:
                 # Copy all gdat and scan to Results
-                for fname in glob(self.sim_dir+'/bestfit/*.gdat') + glob(self.sim_dir+'/bestfit/*.scan'):
+                for fname in glob(self.sim_dir + '/bestfit/*.gdat') + glob(self.sim_dir + '/bestfit/*.scan'):
                     shutil.copy(fname, self.res_dir)
             # Disable saving files for SBML models (in case there is future bootstrapping or refinement)
             for m in self.model_list:
@@ -985,8 +986,8 @@ class Algorithm(object):
         if self.bootstrap_number is None or self.bootstrap_number == self.config.config['bootstrap']:
             try:
                 os.replace('%s/alg_backup.bp' % self.config.config['output_dir'],
-                          '%s/alg_%s.bp' % (self.config.config['output_dir'],
-                                            ('finished' if not self.refine else 'refine_finished')))
+                           '%s/alg_%s.bp' % (self.config.config['output_dir'],
+                                             ('finished' if not self.refine else 'refine_finished')))
                 logger.info('Renamed pickled algorithm backup to alg_%s.bp' %
                             ('finished' if not self.refine else 'refine_finished'))
             except OSError:
@@ -999,7 +1000,7 @@ class Algorithm(object):
                     try:
                         shutil.rmtree(self.sim_dir)
                     except OSError:
-                        logger.error('Failed to remove simulations directory '+self.sim_dir)
+                        logger.error('Failed to remove simulations directory ' + self.sim_dir)
                 else:
                     run(['rm', '-rf', self.sim_dir])  # More likely to succeed than rmtree()
 
@@ -1030,8 +1031,8 @@ class ParticleSwarm(Algorithm):
         # wf=0.1, nmax=30, n_stop=np.inf, absolute_tol=0., relative_tol=0.)
         """
         Initial configuration of particle swarm optimizer
-        :param conf_dict: The fitting configuration
-        :type conf_dict: Configuration
+        :param config: The fitting configuration
+        :type config: Configuration
 
         The config should contain the following definitions:
 
@@ -1115,7 +1116,7 @@ class ParticleSwarm(Algorithm):
         if self.config.config['initialization'] == 'lh':
             new_params_list = self.random_latin_hypercube_psets(self.num_particles)
         else:
-            new_params_list = [self.random_pset() for i in range(self.num_particles)]
+            new_params_list = [self.random_pset() for _ in range(self.num_particles)]
 
         for i in range(len(new_params_list)):
             p = new_params_list[i]
@@ -1125,7 +1126,7 @@ class ParticleSwarm(Algorithm):
             new_velocity = dict({v.name: 0. for v in self.variables})
 
             self.swarm.append([p, new_velocity])
-            self.pset_map[p] = len(self.swarm)-1  # Index of the newly added PSet.
+            self.pset_map[p] = len(self.swarm) - 1  # Index of the newly added PSet.
 
         return [particle[0] for particle in self.swarm]
 
@@ -1178,10 +1179,11 @@ class ParticleSwarm(Algorithm):
         w = self.w0 + (self.wf - self.w0) * self.nv / (self.nv + self.nmax)
         self.swarm[p][1] = \
             {v.name:
-                w * self.swarm[p][1][v.name] +
-                self.c1 * np.random.random() * self.bests[p][0].get_param(v.name).diff(self.swarm[p][0].get_param(v.name)) +
-                self.c2 * np.random.random() * self.global_best[0].get_param(v.name).diff(self.swarm[p][0].get_param(v.name))
-            for v in self.variables}
+             (w * self.swarm[p][1][v.name]) +
+             (self.c1 * np.random.random() *
+              self.bests[p][0].get_param(v.name).diff(self.swarm[p][0].get_param(v.name))) +
+             (self.c2 * np.random.random() *
+              self.global_best[0].get_param(v.name).diff(self.swarm[p][0].get_param(v.name))) for v in self.variables}
 
         # Manually check to determine if reflection occurred (i.e. attempted assigning of variable outside its bounds)
         # If so, update based on reflection protocol and set velocity to 0
@@ -1189,7 +1191,7 @@ class ParticleSwarm(Algorithm):
         for v in self.swarm[p][0]:
             new_vars.append(v.add(self.swarm[p][1][v.name]))
             if v.log_space:
-                new_val = 10.**(np.log10(v.value) + self.swarm[p][1][v.name])
+                new_val = 10. ** (np.log10(v.value) + self.swarm[p][1][v.name])
             else:
                 new_val = v.value + self.swarm[p][1][v.name]
             if new_val < v.lower_bound or v.upper_bound < new_val:
@@ -1209,7 +1211,7 @@ class ParticleSwarm(Algorithm):
         # Set the new name: the old pset name is iter##p##
         # Extract the iter number
         iternum = int(re.search('iter([0-9]+)', paramset.name).groups()[0])
-        new_pset.name = 'iter%ip%i' % (iternum+1, p)
+        new_pset.name = 'iter%ip%i' % (iternum + 1, p)
 
         # Check for stopping criteria
         if self.num_evals >= self.max_evals or self.nv >= self.n_stop:
@@ -1241,6 +1243,7 @@ class DifferentialEvolutionBase(Algorithm):
         """
         Create a new individual for the specified island, according to the set strategy
 
+        :param individuals: Existing individuals to add to
         :param base_index: The index to use for the new individual, or None for a random index.
         :return:
         """
@@ -1274,7 +1277,7 @@ class DifferentialEvolutionBase(Algorithm):
                 if '1' in self.strategy:
                     update_val = self.mutation_factor * others[0].get_param(p.name).diff(others[1].get_param(p.name))
                 else:
-                    update_val = self.mutation_factor * others[0].get_param(p.name).diff(others[1].get_param(p.name)) +\
+                    update_val = self.mutation_factor * others[0].get_param(p.name).diff(others[1].get_param(p.name)) + \
                                  self.mutation_factor * others[2].get_param(p.name).diff(others[3].get_param(p.name))
                 new_pset_vars.append(p.add(update_val))
             else:
@@ -1334,11 +1337,11 @@ class DifferentialEvolution(DifferentialEvolutionBase):
                 logger.warning('Increased population size to minimum allowed value of 3')
             else:
                 print1('Island-based differential evolution requires a population size of at least 3 times '
-                       'the number of islands. Increased the population size to %i.' % (3*self.num_islands))
+                       'the number of islands. Increased the population size to %i.' % (3 * self.num_islands))
                 logger.warning('Increased population size to minimum allowed value of 3 per island')
         if config.config['population_size'] % config.config['islands'] != 0:
             logger.warning('Reduced population_size to %i to evenly distribute it over %i islands' %
-                            (self.num_islands * self.num_per_island, self.num_islands))
+                           (self.num_islands * self.num_per_island, self.num_islands))
         self.migrate_every = config.config['migrate_every']
         if self.num_islands == 1:
             self.migrate_every = np.inf
@@ -1387,23 +1390,23 @@ class DifferentialEvolution(DifferentialEvolutionBase):
 
         # Initialize random individuals
         if self.config.config['initialization'] == 'lh':
-            psets = self.random_latin_hypercube_psets(self.num_islands*self.num_per_island)
+            psets = self.random_latin_hypercube_psets(self.num_islands * self.num_per_island)
             self.proposed_individuals = [psets[i * self.num_per_island: (i + 1) * self.num_per_island]
                                          for i in range(self.num_islands)]
         else:
-            self.proposed_individuals = [[self.random_pset() for i in range(self.num_per_island)]
-                                         for j in range(self.num_islands)]
+            self.proposed_individuals = [[self.random_pset() for _ in range(self.num_per_island)]
+                                         for _ in range(self.num_islands)]
 
         # Initialize the individual list to empty, will be filled with the proposed_individuals once their fitnesses
         # are computed.
         self.individuals = [[None
-                             for i in range(self.num_per_island)]
-                            for j in range(self.num_islands)]
+                             for _ in range(self.num_per_island)]
+                            for _ in range(self.num_islands)]
 
         # Set all fitnesses to Inf, guaranteeing a replacement by the first proposed individual
         self.fitnesses = [[np.Inf
-                           for i in range(self.num_per_island)]
-                          for j in range(self.num_islands)]
+                           for _ in range(self.num_per_island)]
+                          for _ in range(self.num_islands)]
 
         for i in range(len(self.proposed_individuals)):
             for j in range(len(self.proposed_individuals[i])):
@@ -1454,8 +1457,8 @@ class DifferentialEvolution(DifferentialEvolutionBase):
                 else:
                     print2('Completed %i of %i iterations' % (self.iter_num[island], self.max_iterations))
                 print2('Current population fitnesses:')
-                for l in self.fitnesses:
-                    print2(sorted(l))
+                for i in self.fitnesses:
+                    print2(sorted(i))
 
             if self.iter_num[island] == self.max_iterations:
                 # Submit no more jobs for this island
@@ -1471,11 +1474,11 @@ class DifferentialEvolution(DifferentialEvolutionBase):
                 if max(self.migration_ready) < migration_num:
                     # This is the first island to reach this migration.
                     # Need to set global parameters for this migration.
-                    self.migration_transit[migration_num] = [list() for i in range(self.num_islands)]
+                    self.migration_transit[migration_num] = [list() for _ in range(self.num_islands)]
                     self.migration_indices[migration_num] = np.random.choice(range(self.num_per_island),
                                                                              size=self.num_to_migrate, replace=False)
                     self.migration_perms[migration_num] = [np.random.permutation(self.num_islands)
-                                                           for i in range(self.num_to_migrate)]
+                                                           for _ in range(self.num_to_migrate)]
                     logger.debug('Island %i just set up the migration.' % island)
 
                 # Send the required PSets to migration_transit
@@ -1497,7 +1500,8 @@ class DifferentialEvolution(DifferentialEvolutionBase):
                     self.individuals[island][j], self.fitnesses[island][j] = \
                         self.migration_transit[migration_num][newisland][migrater_index]
 
-                    logger.debug('Island %i gained new individual with fitness %f' % (island, self.fitnesses[island][j]))
+                    logger.debug(
+                        'Island %i gained new individual with fitness %f' % (island, self.fitnesses[island][j]))
 
                 self.migration_done[island] = migration_num
                 if min(self.migration_done) == migration_num:
@@ -1534,7 +1538,8 @@ class DifferentialEvolution(DifferentialEvolutionBase):
                 # print(sorted(self.fitnesses[island]))
 
             # Convergence check
-            if (np.min(self.fitnesses) != 0) and (np.max(self.fitnesses) / np.min(self.fitnesses) < 1. + self.stop_tolerance):
+            if (np.min(self.fitnesses) != 0) and (
+                    np.max(self.fitnesses) / np.min(self.fitnesses) < 1. + self.stop_tolerance):
                 return 'STOP'
 
             # Return a copy, so our internal data structure is not tampered with.
@@ -1587,11 +1592,11 @@ class AsynchronousDifferentialEvolution(DifferentialEvolutionBase):
         if self.config.config['initialization'] == 'lh':
             self.individuals = self.random_latin_hypercube_psets(self.population_size)
         else:
-            self.individuals = [self.random_pset() for i in range(self.population_size)]
+            self.individuals = [self.random_pset() for _ in range(self.population_size)]
 
         # Set all fitnesses to Inf, guaranteeing a replacement by the first proposed individual.
         # The first replacement will replace with a copy of the same PSet, with the correct objective calculated.
-        self.fitnesses = [np.Inf for i in range(self.population_size)]
+        self.fitnesses = [np.Inf for _ in range(self.population_size)]
 
         for i in range(len(self.individuals)):
             self.individuals[i].name = 'gen0ind%i' % i
@@ -1609,8 +1614,8 @@ class AsynchronousDifferentialEvolution(DifferentialEvolutionBase):
         pset = res.pset
         fitness = res.score
 
-        gen = int(re.search('(?<=gen)\d+', pset.name).group(0))
-        j = int(re.search('(?<=ind)\d+', pset.name).group(0))
+        generation = int(re.search(r'(?<=gen)\d+', pset.name).group(0))
+        j = int(re.search(r'(?<=ind)\d+', pset.name).group(0))
 
         if fitness <= self.fitnesses[j]:
             self.individuals[j] = pset
@@ -1624,9 +1629,11 @@ class AsynchronousDifferentialEvolution(DifferentialEvolutionBase):
             if iters_complete % self.config.config['output_every'] == 0:
                 self.output_results()
             if iters_complete % 10 == 0:
-                print1('Completed %i of %i simulations' % (self.sims_completed, self.max_iterations * self.population_size))
+                print1('Completed %i of %i simulations' % (
+                    self.sims_completed, self.max_iterations * self.population_size))
             else:
-                print2('Completed %i of %i simulations' % (self.sims_completed, self.max_iterations * self.population_size))
+                print2('Completed %i of %i simulations' % (
+                    self.sims_completed, self.max_iterations * self.population_size))
             print2('Current population fitnesses:')
             print2(sorted(self.fitnesses))
             if iters_complete % 20 == 0:
@@ -1644,7 +1651,7 @@ class AsynchronousDifferentialEvolution(DifferentialEvolutionBase):
             new_pset = self.new_individual(self.individuals, j)
         else:
             new_pset = self.new_individual(self.individuals)
-        new_pset.name = 'gen%iind%i' % (gen+1, j)
+        new_pset.name = 'gen%iind%i' % (generation + 1, j)
 
         return [new_pset]
 
@@ -1681,19 +1688,19 @@ class ScatterSearch(Algorithm):
                        "Automatically setting it equal to population_size.")
                 self.init_size = self.popsize
         else:
-            self.init_size = 10*len(self.variables)
+            self.init_size = 10 * len(self.variables)
             if self.init_size < self.popsize:
                 logger.warning('init_size less than population_size. Setting it equal to population_size.')
                 self.init_size = self.popsize
 
         self.local_min_limit = config.config['local_min_limit']
 
-        self.pending = dict() # {pendingPSet: parentPSet}
-        self.received = dict() # {parentPSet: [(donependingPSet, score)]
-        self.refs = [] # (refPset, score)
+        self.pending = dict()  # {pendingPSet: parentPSet}
+        self.received = dict()  # {parentPSet: [(donependingPSet, score)]
+        self.refs = []  # (refPset, score)
         self.stuckcounter = dict()
         self.iteration = 0
-        self.local_mins = [] # (Pset, score) pairs that were stuck for 5 gens, and so replaced.
+        self.local_mins = []  # (Pset, score) pairs that were stuck for 5 gens, and so replaced.
         self.reserve = []
 
     def reset(self, bootstrap=None):
@@ -1713,7 +1720,7 @@ class ScatterSearch(Algorithm):
         if self.config.config['initialization'] == 'lh':
             psets = self.random_latin_hypercube_psets(self.init_size)
         else:
-            psets = [self.random_pset() for i in range(self.init_size)]
+            psets = [self.random_pset() for _ in range(self.init_size)]
         for i in range(len(psets)):
             psets[i].name = 'init%i' % i
 
@@ -1778,7 +1785,7 @@ class ScatterSearch(Algorithm):
                             self.local_mins.append(self.refs[i])
                             # For output. Not the most efficient, but not in a performance-critical section
                             self.local_mins = sorted(self.local_mins, key=lambda x: x[1])
-                            self.local_mins = self.local_mins[:self.popsize] # So this doesn't get huge
+                            self.local_mins = self.local_mins[:self.popsize]  # So this doesn't get huge
 
                             # Pick a new random pset
                             if len(self.reserve) > 0:
@@ -1807,21 +1814,22 @@ class ScatterSearch(Algorithm):
 
             # 3) Do the combination antics to generate new candidates
             query_psets = []
-            for pi in range(self.popsize): # parent index
-                for hi in range(self.popsize): # helper index
+            for pi in range(self.popsize):  # parent index
+                for hi in range(self.popsize):  # helper index
                     if pi == hi:
                         continue
                     new_vars = []
                     for v in self.variables:
                         # d = (self.refs[hi][0][v] - self.refs[pi][0][v]) / 2.
                         d = self.refs[hi][0].get_param(v.name).diff(self.refs[pi][0].get_param(v.name))
-                        alpha = np.sign(hi-pi)
-                        beta = (abs(hi-pi) - 1) / (self.popsize - 2)
+                        alpha = np.sign(hi - pi)
+                        beta = (abs(hi - pi) - 1) / (self.popsize - 2)
                         # c1 = self.refs[pi][0][v] - d*(1 + alpha*beta)
                         # c2 = self.refs[pi][0][v] + d*(1 - alpha*beta)
                         # newval = np.random.uniform(c1, c2)
                         # newdict[v] = max(min(newval, var[2]), var[1])
-                        new_vars.append(self.refs[pi][0].get_param(v.name).add_rand(-d*(1 + alpha*beta), d*(1 - alpha * beta)))
+                        new_vars.append(self.refs[pi][0].get_param(v.name).add_rand(-d * (1 + alpha * beta),
+                                                                                    d * (1 - alpha * beta)))
                     newpset = PSet(new_vars)
                     # Check to avoid duplicate PSets. If duplicate, don't have to try again because SS doesn't really
                     # care about the number of PSets queried.
@@ -1842,7 +1850,7 @@ class ScatterSearch(Algorithm):
         Overrides base method because Scatter Search runs n*(n-1) PSets per iteration.
         """
         return self.config.config['backup_every'] * self.config.config['population_size'] * \
-            (self.config.config['population_size']-1) * self.config.config['smoothing']
+            (self.config.config['population_size'] - 1) * self.config.config['smoothing']
 
 
 class BayesianAlgorithm(Algorithm):
@@ -1893,10 +1901,10 @@ class BayesianAlgorithm(Algorithm):
         if self.config.config['initialization'] == 'lh':
             first_psets = self.random_latin_hypercube_psets(self.num_parallel)
         else:
-            first_psets = [self.random_pset() for i in range(self.num_parallel)]
+            first_psets = [self.random_pset() for _ in range(self.num_parallel)]
 
-        self.ln_current_P = [np.nan]*self.num_parallel  # Forces accept on the first run
-        self.current_pset = [None]*self.num_parallel
+        self.ln_current_P = [np.nan] * self.num_parallel  # Forces accept on the first run
+        self.current_pset = [None] * self.num_parallel
         for i in range(len(first_psets)):
             first_psets[i].name = 'iter0run%i' % i
 
@@ -1904,7 +1912,7 @@ class BayesianAlgorithm(Algorithm):
         # Cant do this in the constructor because that happens before the output folder is potentially overwritten.
         if setup_samples:
             with open(self.samples_file, 'w') as f:
-                f.write('# Name\tLn_probability\t'+first_psets[0].keys_to_string()+'\n')
+                f.write('# Name\tLn_probability\t' + first_psets[0].keys_to_string() + '\n')
             os.makedirs(self.config.config['output_dir'] + '/Results/Histograms/', exist_ok=True)
 
         return first_psets
@@ -1930,11 +1938,11 @@ class BayesianAlgorithm(Algorithm):
 
             if dist == 'n':
                 # Normal with mean x1 and value x2
-                total += -1. / (2. * x2 ** 2.) * (x1 - val)**2.
+                total += -1. / (2. * x2 ** 2.) * (x1 - val) ** 2.
             else:
                 # Uniform from x1 to x2
                 if x1 <= val <= x2:
-                    total += -np.log(x2-x1)
+                    total += -np.log(x2 - x1)
                 else:
                     logger.warning('Box-constrained parameter %s reached a value outside the box.')
                     total += -np.inf
@@ -1949,7 +1957,7 @@ class BayesianAlgorithm(Algorithm):
         :type ln_prob: float
         """
         with open(self.samples_file, 'a') as f:
-            f.write(pset.name+'\t'+str(ln_prob)+'\t'+pset.values_to_string()+'\n')
+            f.write(pset.name + '\t' + str(ln_prob) + '\t' + pset.values_to_string() + '\n')
 
     def update_histograms(self, file_ext):
         """
@@ -1961,18 +1969,18 @@ class BayesianAlgorithm(Algorithm):
         # Read the samples file into an array, ignoring the first row (header)
         # and first 2 columns (pset names, probabilities)
         dat_array = np.genfromtxt(self.samples_file, delimiter='\t', dtype=float,
-                                  usecols=range(2, len(self.variables)+2))
+                                  usecols=range(2, len(self.variables) + 2))
 
         # Open the file(s) to save the credible intervals
         cred_files = []
         for i in self.credible_intervals:
-            f = open(self.config.config['output_dir']+'/Results/credible%i%s.txt' % (i, file_ext), 'w')
+            f = open(self.config.config['output_dir'] + '/Results/credible%i%s.txt' % (i, file_ext), 'w')
             f.write('# param\tlower_bound\tupper_bound\n')
             cred_files.append(f)
 
         for i in range(len(self.variables)):
             v = self.variables[i]
-            fname = self.config.config['output_dir']+'/Results/Histograms/%s%s.txt' % (v.name, file_ext)
+            fname = self.config.config['output_dir'] + '/Results/Histograms/%s%s.txt' % (v.name, file_ext)
             # For log-space variables, we want the histogram in log space
             if v.log_space:
                 histdata = np.log10(dat_array[:, i])
@@ -1987,9 +1995,9 @@ class BayesianAlgorithm(Algorithm):
             sorted_data = sorted(dat_array[:, i])
             for interval, file in zip(self.credible_intervals, cred_files):
                 n = len(sorted_data)
-                want = n * (interval/100)
-                min_index = int(np.round(n/2 - want/2))
-                max_index = int(np.round(n/2 + want/2 - 1))
+                want = n * (interval / 100)
+                min_index = int(np.round(n / 2 - want / 2))
+                max_index = int(np.round(n / 2 + want / 2 - 1))
                 file.write('%s\t%s\t%s\n' % (v.name, sorted_data[min_index], sorted_data[max_index]))
 
         for file in cred_files:
@@ -2020,10 +2028,11 @@ class DreamAlgorithm(BayesianAlgorithm):
                'our most recent testing, it generates incorrect probability distributions.')
         self.n_dim = len(self.variables)
         self.all_idcs = np.arange(self.n_dim)
-        self.ncr = [(1+x)/self.config.config['crossover_number'] for x in range(self.config.config['crossover_number'])]
+        self.ncr = [(1 + x) / self.config.config['crossover_number'] for x in
+                    range(self.config.config['crossover_number'])]
         self.g_prob = self.config.config['gamma_prob']
-        self.acceptances = [0]*self.num_parallel
-        self.acceptance_rates = [0.0]*self.num_parallel
+        self.acceptances = [0] * self.num_parallel
+        self.acceptance_rates = [0.0] * self.num_parallel
 
     def got_result(self, res):
         """
@@ -2038,7 +2047,7 @@ class DreamAlgorithm(BayesianAlgorithm):
         pset = res.pset
         score = res.score
 
-        m = re.search('(?<=run)\d+', pset.name)
+        m = re.search(r'(?<=run)\d+', pset.name)
         index = int(m.group(0))
 
         # Calculate posterior of finished job
@@ -2062,7 +2071,7 @@ class DreamAlgorithm(BayesianAlgorithm):
         if self.iteration[index] % self.sample_every == 0 and self.iteration[index] > self.burn_in:
             self.sample_pset(self.current_pset[index], self.ln_current_P[index])
         if (self.iteration[index] % (self.sample_every * self.output_hist_every) == 0
-            and self.iteration[index] > self.burn_in):
+                and self.iteration[index] > self.burn_in):
             self.update_histograms('_%i' % self.iteration[index])
 
         # Wait for entire generation to finish
@@ -2141,7 +2150,6 @@ class DreamAlgorithm(BayesianAlgorithm):
 
 
 class BasicBayesMCMCAlgorithm(BayesianAlgorithm):
-
     """
     Implements a Bayesian Markov chain Monte Carlo simulation.
 
@@ -2209,14 +2217,17 @@ class BasicBayesMCMCAlgorithm(BayesianAlgorithm):
                    'until 1/T reaches %s' % (self.num_parallel, self.max_iterations, self.beta_max))
         else:
             if not self.pt:
-                print2('Running Markov Chain Monte Carlo on %i independent replicates in parallel, for %i iterations each.'
-                       % (self.num_parallel, self.max_iterations))
+                print2(
+                    'Running Markov Chain Monte Carlo on %i independent replicates in parallel, for %i iterations each.'
+                    % (self.num_parallel, self.max_iterations))
             else:
-                print2('Running parallel tempering on %i replicates for %i iterations, with replica exchanges performed '
-                       'every %i iterations' % (self.num_parallel, self.max_iterations, self.exchange_every))
+                print2(
+                    'Running parallel tempering on %i replicates for %i iterations, with replica exchanges performed '
+                    'every %i iterations' % (self.num_parallel, self.max_iterations, self.exchange_every))
 
-            print2('Statistical samples will be recorded every %i iterations, after an initial %i-iteration burn-in period'
-                   % (self.sample_every, self.burn_in))
+            print2(
+                'Statistical samples will be recorded every %i iterations, after an initial %i-iteration burn-in period'
+                % (self.sample_every, self.burn_in))
 
         setup_samples = not self.sa
         return super(BasicBayesMCMCAlgorithm, self).start_run(setup_samples=setup_samples)
@@ -2235,11 +2246,11 @@ class BasicBayesMCMCAlgorithm(BayesianAlgorithm):
         score = res.score
 
         # Figure out which parallel run this is from based on the .name field.
-        m = re.search('(?<=run)\d+', pset.name)
+        m = re.search(r'(?<=run)\d+', pset.name)
         index = int(m.group(0))
 
         # Calculate the acceptance probability
-        lnprior = self.ln_prior(pset) # Need something clever for box constraints
+        lnprior = self.ln_prior(pset)  # Need something clever for box constraints
         lnlikelihood = -score
 
         # Because the P's are so small to start, we express posterior, p_accept, and current_P in ln space
@@ -2249,7 +2260,7 @@ class BasicBayesMCMCAlgorithm(BayesianAlgorithm):
 
         # Decide whether to accept move.
         self.attempts += 1
-        if np.random.rand() < np.exp(ln_p_accept*self.betas[index]) or np.isnan(self.ln_current_P[index]):
+        if np.random.rand() < np.exp(ln_p_accept * self.betas[index]) or np.isnan(self.ln_current_P[index]):
             # Accept the move, so update our current PSet and P
             self.accepted += 1
             self.current_pset[index] = pset
@@ -2276,7 +2287,7 @@ class BasicBayesMCMCAlgorithm(BayesianAlgorithm):
                 self.wait_for_sync = [False] * self.num_parallel
                 return self.replica_exchange()
             elif min(self.iteration) >= self.max_iterations:
-                print0('Overall move accept rate: %f' % (self.accepted/self.attempts))
+                print0('Overall move accept rate: %f' % (self.accepted / self.attempts))
                 if not self.sa:
                     self.update_histograms('_final')
                 return 'STOP'
@@ -2327,8 +2338,8 @@ class BasicBayesMCMCAlgorithm(BayesianAlgorithm):
                         and self.should_sample(index):
                     self.sample_pset(self.current_pset[index], self.ln_current_P[index])
                 if (self.iteration[index] > self.burn_in
-                   and self.iteration[index] % (self.output_hist_every * self.sample_every) == 0
-                   and self.iteration[index] == min(self.iteration)):
+                        and self.iteration[index] % (self.output_hist_every * self.sample_every) == 0
+                        and self.iteration[index] == min(self.iteration)):
                     self.update_histograms('_%i' % self.iteration[index])
 
             if self.iteration[index] == min(self.iteration):
@@ -2336,13 +2347,13 @@ class BasicBayesMCMCAlgorithm(BayesianAlgorithm):
                     self.output_results()
                 if self.iteration[index] % 10 == 0:
                     print1('Completed iteration %i of %i' % (self.iteration[index], self.max_iterations))
-                    print2('Current move accept rate: %f' % (self.accepted/self.attempts))
+                    print2('Current move accept rate: %f' % (self.accepted / self.attempts))
                     if self.exchange_attempts > 0:
                         print2('Current replica exchange rate: %f' % (self.exchange_accepted / self.exchange_attempts))
                 else:
                     print2('Completed iteration %i of %i' % (self.iteration[index], self.max_iterations))
                 logger.info('Completed %i iterations' % self.iteration[index])
-                logger.info('Current move accept rate: %f' % (self.accepted/self.attempts))
+                logger.info('Current move accept rate: %f' % (self.accepted / self.attempts))
                 if self.exchange_attempts > 0:
                     logger.info('Current replica exchange rate: %f' % (self.exchange_accepted / self.exchange_attempts))
                 if self.sa:
@@ -2413,7 +2424,8 @@ class BasicBayesMCMCAlgorithm(BayesianAlgorithm):
                 other_group = permutation[group]
                 ind_lo = self.betas_per_group * other_group + i + 1
                 # Consider exchanging index ind_hi (higher T) with ind_lo (lower T)
-                ln_p_exchange = min(0., -(self.betas[ind_lo]-self.betas[ind_hi]) * (self.ln_current_P[ind_lo]-self.ln_current_P[ind_hi]))
+                ln_p_exchange = min(0., -(self.betas[ind_lo] - self.betas[ind_hi]) * (
+                        self.ln_current_P[ind_lo] - self.ln_current_P[ind_hi]))
                 # Scratch work: Should there be a - sign in front? You want to always accept if moving the better answer
                 # to the lower temperature. ind_lo has lower T so higher beta, so the first term is positive. The second
                 # term is positive if ind_lo is better. But you want a positive final answer when ind_hi, currently at
@@ -2467,7 +2479,7 @@ class BasicBayesMCMCAlgorithm(BayesianAlgorithm):
                 if ps:
                     # Add to a list of new psets to run that will be submitted when the first result comes back.
                     ps.name = 'iter%irun%i' % (self.iteration[index], index)
-                    logger.debug('Added PSet %s to BayesAlgorithm.staged to resume a chain' % (ps.name))
+                    logger.debug('Added PSet %s to BayesAlgorithm.staged to resume a chain' % ps.name)
                     self.staged.append(ps)
 
 
@@ -2569,7 +2581,7 @@ class SimplexAlgorithm(Algorithm):
             i += 1
             init_psets.append(new_pset)
         self.simplex = []
-        self.stages = [-1]*len(init_psets)
+        self.stages = [-1] * len(init_psets)
         return init_psets
 
     def got_result(self, res):
@@ -2596,15 +2608,16 @@ class SimplexAlgorithm(Algorithm):
                 self.cases[index] = 1
                 new_vars = []
                 for v in self.variables:
-                    new_var = v.set_value(self.a_plus_b_times_c_minus_d(pset[v.name], self.gamma, pset[v.name], self.centroids[index][v.name],
-                                                                v))
+                    new_var = v.set_value(self.a_plus_b_times_c_minus_d(pset[v.name], self.gamma, pset[v.name],
+                                                                        self.centroids[index][v.name],
+                                                                        v))
                     new_vars.append(new_var)
                 new_pset = PSet(new_vars)
                 new_pset.name = 'simplex_iter%i_pt%i-2' % (self.iteration, index)
                 self.pending[new_pset.name] = index
                 self.stages[index] = 2
                 return [new_pset]
-            elif score < self.simplex[-index-2][0]:
+            elif score < self.simplex[-index - 2][0]:
                 # Case 2: The point is worse than the current min, but better than the next worst point
                 # Note that simplex[-index-1] is the point that this one was built from, so we check [-index-2]
                 # We don't run a second point in this case.
@@ -2618,17 +2631,18 @@ class SimplexAlgorithm(Algorithm):
                 # We calculate the contraction point
                 self.cases[index] = 3
                 # Work off the original or the reflection, whichever is better
-                if score < self.simplex[-index-1][0]:
+                if score < self.simplex[-index - 1][0]:
                     a_hat = pset
                 else:
-                    a_hat = self.simplex[-index-1][1]
+                    a_hat = self.simplex[-index - 1][1]
                 new_vars = []
                 for v in self.variables:
                     # I think the equation for this in Lee et al p. 178 is wrong; I am instead using the analog to the
                     # equation on p. 176
                     # new_dict[v] = self.centroids[index][v] + self.beta * (a_hat[v] - self.centroids[index][v])
-                    new_var = v.set_value(self.a_plus_b_times_c_minus_d(self.centroids[index][v.name], self.beta, a_hat[v.name],
-                                                                self.centroids[index][v.name], v))
+                    new_var = v.set_value(
+                        self.a_plus_b_times_c_minus_d(self.centroids[index][v.name], self.beta, a_hat[v.name],
+                                                      self.centroids[index][v.name], v))
                     new_vars.append(new_var)
                 new_pset = PSet(new_vars)
                 new_pset.name = 'simplex_iter%i_pt%i-2' % (self.iteration, index)
@@ -2653,7 +2667,7 @@ class SimplexAlgorithm(Algorithm):
             if len(self.first_points) > 0:
                 productive = False
                 for i in range(len(self.first_points)):
-                    si = -i-1  # Index into the simplex
+                    si = -i - 1  # Index into the simplex
                     if self.cases[i] == 1:
                         productive = True
                         if self.first_points[i][0] < self.second_points[i][0]:
@@ -2665,7 +2679,7 @@ class SimplexAlgorithm(Algorithm):
                         self.simplex[si] = self.first_points[i]
                     elif self.cases[i] == 3:
                         if (self.second_points[i][0] < self.first_points[i][0]
-                           and self.second_points[i][0] < self.simplex[si][0]):
+                                and self.second_points[i][0] < self.simplex[si][0]):
                             productive = True
                             self.simplex[si] = self.second_points[i]
                         elif self.first_points[i][0] < self.simplex[si][0]:
@@ -2687,7 +2701,7 @@ class SimplexAlgorithm(Algorithm):
                         for v in self.variables:
                             # new_dict[v] = self.tau * self.simplex[i-1][1][v] + (1 - self.tau) * self.simplex[i][1][v]
                             new_var = v.set_value(self.ab_plus_cd(self.tau, self.simplex[0][1][v.name], 1 - self.tau,
-                                                      self.simplex[i][1][v.name], v))
+                                                                  self.simplex[i][1][v.name], v))
                             new_vars.append(new_var)
                         new_pset = PSet(new_vars)
                         new_pset.name = 'simplex_iter%i_pt%i' % (self.iteration, i)
@@ -2707,15 +2721,15 @@ class SimplexAlgorithm(Algorithm):
             # Re-sort the simplex based on the updated objectives
             self.simplex = sorted(self.simplex, key=lambda x: x[0])
             if self.iteration == self.max_iterations:
-                return 'STOP' # Extra catch if finish on a rebuild the simplex iteration
+                return 'STOP'  # Extra catch if finish on a rebuild the simplex iteration
             # Find the reflection point for the n worst points
             reflections = []
             self.centroids = []
             # Sum of each param value, to help take the reflections
-            sums = self.get_sums() # Returns in log space for log variables
+            sums = self.get_sums()  # Returns in log space for log variables
             max_diff = 0.
             for ai in range(self.parallel_count):
-                a = self.simplex[-ai-1][1]
+                a = self.simplex[-ai - 1][1]
                 new_vars = []
                 this_centroid = dict()
                 for v in self.variables:
@@ -2765,7 +2779,8 @@ class SimplexAlgorithm(Algorithm):
                 sums[p.name] = sum(np.log10(point[1][p.name]) for point in self.simplex)
         return sums
 
-    def a_plus_b_times_c_minus_d(self, a, b, c, d, v):
+    @staticmethod
+    def a_plus_b_times_c_minus_d(a, b, c, d, v):
         """
         Performs the calculation a + b*(c-d), where a, c, and d are assumed to be in log space if v is in log space,
         and the final result respects the box constraints on v.
@@ -2780,12 +2795,13 @@ class SimplexAlgorithm(Algorithm):
         """
 
         if v.log_space:
-            result = 10 ** (np.log10(a) + b*(np.log10(c) - np.log10(d)))
+            result = 10 ** (np.log10(a) + b * (np.log10(c) - np.log10(d)))
         else:
-            result = a + b*(c-d)
+            result = a + b * (c - d)
         return max(v.lower_bound, min(v.upper_bound, result))
 
-    def ab_plus_cd(self, a, b, c, d, v):
+    @staticmethod
+    def ab_plus_cd(a, b, c, d, v):
         """
         Performs the calculation ab + cd where b and d are assumed to be in log space if v is in log space,
         and the final result respects the box constraints on v
@@ -2798,7 +2814,7 @@ class SimplexAlgorithm(Algorithm):
         :return:
         """
         if v.log_space:
-            result = 10 ** (a * np.log10(b) + c*np.log10(d))
+            result = 10 ** (a * np.log10(b) + c * np.log10(d))
         else:
             result = a * b + c * d
         return max(v.lower_bound, min(v.upper_bound, result))
@@ -2814,8 +2830,8 @@ def latin_hypercube(nsamples, ndims):
     if ndims == 0:
         # Weird edge case - needed for other code counting on result having a number of rows
         return np.zeros((nsamples, 0))
-    value_table = np.transpose(np.array([[i/nsamples + 1/nsamples * np.random.random() for i in range(nsamples)]
-                                         for dim in range(ndims)]))
+    value_table = np.transpose(np.array([[i / nsamples + 1 / nsamples * np.random.random() for i in range(nsamples)]
+                                         for _ in range(ndims)]))
     for dim in range(ndims):
         np.random.shuffle(value_table[:, dim])
     return value_table
@@ -2884,9 +2900,10 @@ class ModelCheck(object):
             counter = ConstraintCounter()
             fail_count = counter.evaluate_multiple(result.simdata, self.exp_data, self.config.constraints)
             total = sum([len(cset.constraints) for cset in self.config.constraints])
-            print('Satisfied %i out of %i constraints' % (total-fail_count, total))
+            print('Satisfied %i out of %i constraints' % (total - fail_count, total))
             for cset in self.config.constraints:
                 cset.output_itemized_eval(result.simdata, self.sim_dir)
+
 
 def exp10(n):
     """
@@ -2896,7 +2913,7 @@ def exp10(n):
     """
     try:
         with np.errstate(over='raise'):
-            ans = 10.**n
+            ans = 10. ** n
     except (OverflowError, FloatingPointError):
         logger.error('Overflow error in exp10()')
         logger.error(''.join(traceback.format_stack()))  # Log the entire traceback

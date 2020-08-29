@@ -1,5 +1,5 @@
 """Functions for managing dask cluster setup and teardown on distributed computing systems"""
-
+import asyncio
 
 from .printing import PybnfError
 
@@ -148,11 +148,11 @@ class Cluster:
 
     def teardown(self):
         """
-        Terminates the process running the `dask-ssh` script after completion of fitting run
+        Shutdown the entire cluster
 
         """
-        logger.info('Closing client')
-        self.client.close()
+        logger.info('Shutting down cluster')
+        self.client.shutdown()
         if self._dask_proc:
             logger.info('Closing dask-ssh subprocess')
             self._dask_proc.terminate()
